@@ -17,6 +17,7 @@ RUN apk add --no-cache openssl libc6-compat
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+RUN npm install --workspace=backend --include=dev
 RUN npm run build --workspace=backend
 
 FROM node:20-alpine AS runner
