@@ -1,21 +1,32 @@
-FROM node:20-alpine AS base
+FROM node:20-alpine AS deps
 WORKDIR /app
 
-FROM base AS deps
-COPY package.json ./package.json
+COPY package.json package-lock.json ./
 COPY apps/frontend/package.json ./apps/frontend/package.json
-RUN npm install
+COPY apps/backend/package.json ./apps/backend/package.json
+COPY apps/backend/prisma ./apps/backend/prisma
 
-FROM deps AS build
+RUN npm ci
+
+FROM node:20-alpine AS builder
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+
 RUN npm run build --workspace=frontend
 
-FROM node:20-alpine AS production
+FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=build /app/apps/frontend/.next ./apps/frontend/.next
-COPY --from=build /app/apps/frontend/package.json ./apps/frontend/package.json
-COPY --from=build /app/apps/frontend/next.config.ts ./apps/frontend/next.config.ts
-COPY --from=build /app/apps/frontend/public ./apps/frontend/public
-CMD ["npx", "next", "start", "apps/frontend", "-p", "3000"]
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+
+COPY --from=builder /app/apps/frontend/public ./apps/frontend/public
+COPY --from=builder /app/apps/frontend/.next/standalone ./
+COPY --from=builder /app/apps/frontend/.next/static ./apps/frontend/.next/static
+
+EXPOSE 3000
+CMD ["node", "apps/frontend/server.js"]

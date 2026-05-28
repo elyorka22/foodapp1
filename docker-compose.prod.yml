@@ -14,7 +14,7 @@ services:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
     networks:
       - app_net
 
@@ -28,7 +28,7 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 3s
-      retries: 5
+      retries: 10
     networks:
       - app_net
 
@@ -50,7 +50,7 @@ services:
       test: ["CMD", "wget", "-qO-", "http://localhost:4000/api/v1/health"]
       interval: 15s
       timeout: 5s
-      retries: 5
+      retries: 10
     networks:
       - app_net
 
@@ -66,20 +66,27 @@ services:
         condition: service_healthy
     expose:
       - "3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
     networks:
       - app_net
 
   nginx:
     image: nginx:1.27-alpine
     restart: unless-stopped
+    env_file:
+      - .env.production
     depends_on:
-      - frontend
-      - backend
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
     ports:
       - "80:80"
       - "443:443"
-    env_file:
-      - .env.production
     command: >
       /bin/sh -c "envsubst '$$DOMAIN' < /etc/nginx/templates/nginx.prod.conf.template > /etc/nginx/nginx.conf
       && nginx -g 'daemon off;'"

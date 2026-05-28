@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
 import { useCartStore } from '@/lib/store/cart-store';
 
 export default function CheckoutPage() {
@@ -10,6 +9,7 @@ export default function CheckoutPage() {
   const { items, subtotal } = useCartStore();
   const [address, setAddress] = useState('Toshkent, Chilonzor tumani, 20-mavze');
   const [promo, setPromo] = useState('');
+  const [notice, setNotice] = useState<string | null>(null);
 
   const deliveryFee = items.length ? 10000 : 0;
   const discount = promo.toUpperCase() === 'HELLO20' ? Math.round(subtotal() * 0.2) : 0;
@@ -38,13 +38,14 @@ export default function CheckoutPage() {
 
       <button
         onClick={() => {
-          toast.success('Buyurtma qabul qilindi');
+          setNotice('Buyurtma qabul qilindi');
           router.push('/orders/r-1');
         }}
         className="w-full rounded-2xl bg-[rgb(var(--primary))] py-3 text-sm font-semibold text-white"
       >
         Buyurtma berish
       </button>
+      {notice ? <p className="text-center text-xs font-medium text-emerald-600">{notice}</p> : null}
     </main>
   );
 }
