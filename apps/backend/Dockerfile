@@ -17,7 +17,6 @@ RUN apk add --no-cache openssl libc6-compat
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-RUN npm install --workspace=backend --include=dev
 RUN npm run build --workspace=backend
 
 FROM node:20-alpine AS runner
@@ -30,6 +29,7 @@ COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
 COPY --from=builder /app/apps/backend/prisma ./apps/backend/prisma
 COPY --from=builder /app/apps/backend/package.json ./apps/backend/package.json
 COPY --from=builder /app/package.json ./package.json
+RUN npm prune --omit=dev --workspaces --include-workspace-root
 
 EXPOSE 4000
 CMD ["node", "apps/backend/dist/main.js"]

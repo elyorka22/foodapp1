@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "nest start --watch",
-    "build": "npm run prisma:generate && nest build",
+    "build": "npm run prisma:generate && npm exec nest build",
     "start": "node dist/main",
     "lint": "eslint \"src/**/*.ts\"",
     "test": "jest",
