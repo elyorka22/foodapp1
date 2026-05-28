@@ -1,0 +1,12 @@
+node_modules
+.local
+.env
+.env.*
+dist
+.next
+coverage
+*.log
+.DS_Store
+apps/backend/prisma/migrations
+backups
+infra/certbot/conf

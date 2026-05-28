@@ -1,0 +1,483 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+  RESTAURANT
+  COURIER
+}
+
+enum Language {
+  UZ
+  RU
+}
+
+enum RestaurantRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum RestaurantStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+enum OrderStatus {
+  PENDING
+  ACCEPTED_BY_RESTAURANT
+  PREPARING
+  READY_FOR_PICKUP
+  COURIER_ASSIGNED
+  ON_THE_WAY
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentType {
+  CLICK
+  PAYME
+  CASH
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum CourierStatus {
+  OFFLINE
+  ONLINE
+  BUSY
+}
+
+enum TransactionType {
+  PAYMENT
+  PAYOUT
+  REFUND
+  COMMISSION
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum NotificationType {
+  SYSTEM
+  ORDER
+  PROMO
+}
+
+model User {
+  id             String         @id @default(cuid())
+  phone          String         @unique
+  passwordHash   String?
+  fullName       String?
+  role           Role           @default(USER)
+  language       Language       @default(UZ)
+  isPhoneVerified Boolean       @default(false)
+  isActive       Boolean        @default(true)
+  refreshTokenHash String?
+  lastLoginAt    DateTime?
+  deletedAt      DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  addresses      UserAddress[]
+  cart           Cart?
+  orders         Order[]        @relation("UserOrders")
+  reviews        Review[]
+  notifications  Notification[]
+  favoriteRestaurants FavoriteRestaurant[]
+  courierProfile Courier?
+  restaurantProfile Restaurant?
+
+  @@index([role])
+  @@index([deletedAt])
+}
+
+model UserAddress {
+  id           String    @id @default(cuid())
+  userId       String
+  title        String
+  addressLine  String
+  latitude     Decimal   @db.Decimal(10, 7)
+  longitude    Decimal   @db.Decimal(10, 7)
+  entrance     String?
+  floor        String?
+  apartment    String?
+  isDefault    Boolean   @default(false)
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user         User      @relation(fields: [userId], references: [id])
+  orders       Order[]
+
+  @@index([userId])
+  @@index([deletedAt])
+}
+
+model Restaurant {
+  id                    String      @id @default(cuid())
+  ownerId               String      @unique
+  name                  String
+  description           String?
+  phone                 String
+  logoUrl               String?
+  coverUrl              String?
+  minOrderAmount        Decimal     @db.Decimal(10, 2)
+  deliveryFee           Decimal     @db.Decimal(10, 2)
+  avgDeliveryTimeMinutes Int
+  requestStatus         RestaurantRequestStatus @default(PENDING)
+  status                RestaurantStatus @default(INACTIVE)
+  opensAt               String?
+  closesAt              String?
+  zoneGeoJson           String?
+  ratingAvg             Decimal     @default(0) @db.Decimal(3, 2)
+  ratingCount           Int         @default(0)
+  deletedAt             DateTime?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  owner                 User        @relation(fields: [ownerId], references: [id])
+  categories            RestaurantCategory[]
+  products              Product[]
+  orders                Order[]
+  banners               Banner[]
+  favorites             FavoriteRestaurant[]
+
+  @@index([status])
+  @@index([requestStatus])
+  @@index([deletedAt])
+}
+
+model RestaurantCategory {
+  id            String    @id @default(cuid())
+  restaurantId  String
+  nameUz        String
+  nameRu        String
+  sortOrder     Int       @default(0)
+  isActive      Boolean   @default(true)
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id])
+  products      Product[]
+
+  @@index([restaurantId])
+  @@index([deletedAt])
+}
+
+model FoodCategory {
+  id          String    @id @default(cuid())
+  nameUz      String
+  nameRu      String
+  iconUrl     String?
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  products    Product[]
+
+  @@index([sortOrder])
+  @@index([deletedAt])
+}
+
+model Product {
+  id                    String    @id @default(cuid())
+  restaurantId          String
+  restaurantCategoryId  String?
+  foodCategoryId        String?
+  nameUz                String
+  nameRu                String
+  descriptionUz         String?
+  descriptionRu         String?
+  imageUrl              String?
+  basePrice             Decimal   @db.Decimal(10, 2)
+  isAvailable           Boolean   @default(true)
+  deletedAt             DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  restaurant            Restaurant @relation(fields: [restaurantId], references: [id])
+  restaurantCategory    RestaurantCategory? @relation(fields: [restaurantCategoryId], references: [id])
+  foodCategory          FoodCategory? @relation(fields: [foodCategoryId], references: [id])
+  variants              ProductVariant[]
+  extras                ProductExtra[]
+  cartItems             CartItem[]
+  orderItems            OrderItem[]
+
+  @@index([restaurantId])
+  @@index([restaurantCategoryId])
+  @@index([foodCategoryId])
+  @@index([deletedAt])
+}
+
+model ProductVariant {
+  id          String    @id @default(cuid())
+  productId   String
+  nameUz      String
+  nameRu      String
+  price       Decimal   @db.Decimal(10, 2)
+  isActive    Boolean   @default(true)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  product     Product   @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+}
+
+model ProductExtra {
+  id          String    @id @default(cuid())
+  productId   String
+  nameUz      String
+  nameRu      String
+  price       Decimal   @db.Decimal(10, 2)
+  isActive    Boolean   @default(true)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  product     Product   @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+}
+
+model Cart {
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user        User      @relation(fields: [userId], references: [id])
+  items       CartItem[]
+
+  @@index([deletedAt])
+}
+
+model CartItem {
+  id               String    @id @default(cuid())
+  cartId           String
+  productId        String
+  productVariantId String?
+  quantity         Int       @default(1)
+  note             String?
+  unitPrice        Decimal   @db.Decimal(10, 2)
+  deletedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  cart             Cart      @relation(fields: [cartId], references: [id])
+  product          Product   @relation(fields: [productId], references: [id])
+
+  @@index([cartId])
+  @@index([productId])
+  @@index([deletedAt])
+}
+
+model Order {
+  id                  String      @id @default(cuid())
+  userId              String
+  restaurantId        String
+  courierId           String?
+  addressId           String
+  status              OrderStatus @default(PENDING)
+  paymentType         PaymentType
+  paymentStatus       PaymentStatus @default(PENDING)
+  subtotal            Decimal     @db.Decimal(10, 2)
+  deliveryFee         Decimal     @db.Decimal(10, 2)
+  discountAmount      Decimal     @default(0) @db.Decimal(10, 2)
+  totalAmount         Decimal     @db.Decimal(10, 2)
+  promoCodeId         String?
+  note                String?
+  acceptedAt          DateTime?
+  deliveredAt         DateTime?
+  cancelledAt         DateTime?
+  deletedAt           DateTime?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  user                User        @relation("UserOrders", fields: [userId], references: [id])
+  restaurant          Restaurant  @relation(fields: [restaurantId], references: [id])
+  courier             Courier?    @relation(fields: [courierId], references: [id])
+  address             UserAddress @relation(fields: [addressId], references: [id])
+  promoCode           PromoCode?  @relation(fields: [promoCodeId], references: [id])
+  items               OrderItem[]
+  transactions        Transaction[]
+  review              Review?
+
+  @@index([userId])
+  @@index([restaurantId])
+  @@index([courierId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id               String    @id @default(cuid())
+  orderId           String
+  productId         String
+  productNameUz     String
+  productNameRu     String
+  quantity          Int
+  unitPrice         Decimal   @db.Decimal(10, 2)
+  totalPrice        Decimal   @db.Decimal(10, 2)
+  variantNameUz     String?
+  variantNameRu     String?
+  extrasSnapshot    Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  order             Order     @relation(fields: [orderId], references: [id])
+  product           Product   @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model Courier {
+  id                 String       @id @default(cuid())
+  userId             String       @unique
+  transportType      String?
+  currentLatitude    Decimal?     @db.Decimal(10, 7)
+  currentLongitude   Decimal?     @db.Decimal(10, 7)
+  status             CourierStatus @default(OFFLINE)
+  isVerified         Boolean      @default(false)
+  walletBalance      Decimal      @default(0) @db.Decimal(10, 2)
+  deletedAt          DateTime?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  user               User         @relation(fields: [userId], references: [id])
+  orders             Order[]
+
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model Transaction {
+  id                String            @id @default(cuid())
+  orderId           String
+  userId            String?
+  amount            Decimal           @db.Decimal(10, 2)
+  type              TransactionType
+  status            TransactionStatus @default(PENDING)
+  provider          PaymentType?
+  providerRef       String?
+  meta              Json?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  order             Order             @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@index([status])
+}
+
+model Review {
+  id                String     @id @default(cuid())
+  userId            String
+  orderId           String     @unique
+  rating            Int
+  comment           String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  user              User       @relation(fields: [userId], references: [id])
+  order             Order      @relation(fields: [orderId], references: [id])
+
+  @@index([userId])
+  @@index([rating])
+}
+
+model Notification {
+  id                String            @id @default(cuid())
+  userId            String
+  type              NotificationType
+  title             String
+  message           String
+  isRead            Boolean           @default(false)
+  payload           Json?
+  createdAt         DateTime          @default(now())
+
+  user              User              @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead])
+}
+
+model PromoCode {
+  id                String     @id @default(cuid())
+  code              String     @unique
+  description       String?
+  discountPercent   Int?
+  discountAmount    Decimal?   @db.Decimal(10, 2)
+  maxDiscountAmount Decimal?   @db.Decimal(10, 2)
+  minOrderAmount    Decimal?   @db.Decimal(10, 2)
+  usageLimit        Int?
+  usedCount         Int        @default(0)
+  startsAt          DateTime?
+  endsAt            DateTime?
+  isActive          Boolean    @default(true)
+  deletedAt         DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  orders            Order[]
+
+  @@index([code])
+  @@index([deletedAt])
+}
+
+model Banner {
+  id                String     @id @default(cuid())
+  titleUz           String
+  titleRu           String
+  imageUrl          String
+  targetUrl         String?
+  restaurantId      String?
+  isActive          Boolean    @default(true)
+  sortOrder         Int        @default(0)
+  startsAt          DateTime?
+  endsAt            DateTime?
+  deletedAt         DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  restaurant        Restaurant? @relation(fields: [restaurantId], references: [id])
+
+  @@index([restaurantId])
+  @@index([sortOrder])
+  @@index([deletedAt])
+}
+
+model FavoriteRestaurant {
+  id           String     @id @default(cuid())
+  userId       String
+  restaurantId String
+  createdAt    DateTime   @default(now())
+
+  user         User       @relation(fields: [userId], references: [id])
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  @@unique([userId, restaurantId])
+  @@index([restaurantId])
+}
